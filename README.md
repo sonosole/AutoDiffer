@@ -5,17 +5,16 @@
 
 ## 示例代码一
 测试 ReLU 激活函数
-```lua
+```julia
 m = [ 1. -2.;
      -3.  4.;
       5. -6.]
 
-# 构建图与包裹变量
-g = Graph()
+# 包裹变量
 x = Variable(m)
 
 # 对变量进行激活操作
-y = relu(g, x)
+y = relu(x)
 
 # 手动指定损失值对输出变量的梯度
 y.delta = [-0.1 0.2;
@@ -23,7 +22,7 @@ y.delta = [-0.1 0.2;
             0.5 0.6]
 
 # 依据dL/dy进行反向传播
-g.backward[1]()
+backward()
 print(x.delta)
 #[-0.1 0.0;
 #  0.0 0.4;
@@ -33,33 +32,31 @@ print(x.delta)
 ## 示例代码二
 使用搭建好的一个多层感知机（多层前馈全连接网络）
 
-```lua
+```julia
+input = ...
+label = ...
+
 topology = [2, 128, 2]
 operator = [relu, softmax]
 mlpmodel = MLP(topology, operator)
 
 for i=1:epoch
-    g = Graph(true)
-    o, w = forward(g, mlpmodel, input)
-    loss = crossEntropy(g, o, Variable(label))
-    LOSS = cost(g, loss)
-    Backward(g)
-    for i = 1:length(w)
-        update(w[i], 0.0001)
-    end
-    println("loss: ", LOSS.value[1])
+    outs = forward(mlpmodel, Variable(input))
+    COST = crossEntropyLoss(outs, Variable(label))
+    zerograd(mlpmodel)
+    backward()
+    update(paramsof(mlpmodel), lrate)
+    println("loss: ", COST.value)
 end
 ```
 ![loss](doc/loss4mlp.png)
 
 ## 变量 Variable 说明
 变量用来存储计算图的节点，变量主要有如下属性
-```shell
+```julia
 value     # 节点的前向计算结果
 delta     # 损失对此节点的梯度
 trainable # 此节点是否是网络需要训练的参数
-parents   # 此节点的父节点列表
-children  # 此节点的子节点列表
 ```
 
 ## 技术基础
@@ -73,8 +70,8 @@ children  # 此节点的子节点列表
 + 矩阵按对应位置元素相加、相乘（点加、点乘）A .+ B,  A .* B
 + 矩阵按列与列向量相加、相乘 A .+ Vec, A .* Vec
 + 矩阵相乘 A * B
-+ 矩阵拼接 concat [A; B]
-+ tan/tand/tanh + sin/sinc/sind/sinpi + log/log2/log10 + exp/exp2/exp10 + cos + swish + relu + leakyrelu + sigmoid + softmax + sqrt
++ 矩阵拼接 vcat [A; B]
++ tan/tand/tanh + sin/sinc/sind/sinpi + log/log2/log10 + exp/exp2/exp10 + cos + swish + relu + leakyrelu + sigmoid + softmax + sqrt + inv
 + crossEntropy + mse + binaryCrossEntropy
 
 ## TODOoo List
