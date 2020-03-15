@@ -21,30 +21,30 @@ end
 mutable struct MLP <: Block
     layernum::Int
     topology::Array{Int,1}
-    parameter::Vector
+    parameters::Vector
 
     function MLP(topology::Array{Int,1})
-        layernum  = length(topology)
-        parameter = Vector(undef, layernum-1)
+        layernum = length(topology)
+        parameters = Vector(undef, layernum-1)
         for i = 1:layernum-2
-            parameter[i] = dense(topology[i+1], topology[i], relu)
+            parameters[i] = dense(topology[i+1], topology[i], relu)
         end
-        parameter[layernum-1] = dense(topology[layernum], topology[layernum-1], softmax)
-        new(layernum, topology, parameter)
+        parameters[layernum-1] = dense(topology[layernum], topology[layernum-1], softmax)
+        new(layernum, topology, parameters)
     end
 
     function MLP(topology::Array{Int,1}, fn)
-        layernum  = length(topology)
-        parameter = Vector(undef, layernum-1)
+        layernum = length(topology)
+        parameters = Vector(undef, layernum-1)
         for i = 1:layernum-1
-            parameter[i] = dense(topology[i+1], topology[i], fn[i])
+            parameters[i] = dense(topology[i+1], topology[i], fn[i])
         end
-        new(layernum, topology, parameter)
+        new(layernum, topology, parameters)
     end
 end
 
+
 function weightsof(m::dense)
-    # weights parameters
     weights = Vector(undef, 2)
     weights[1] = m.w.value
     weights[2] = m.b.value
@@ -56,14 +56,45 @@ function weightsof(m::MLP)
     hlayers = m.layernum-1
     weights = Vector(undef,0)
     for i = 1:hlayers
-        append!(weights, weightsof(m.parameter[i]))
+        append!(weights, weightsof(m.parameters[i]))
     end
     return weights
 end
 
 
+function gradsof(m::dense)
+    grads = Vector(undef, 2)
+    grads[1] = m.w.delta
+    grads[2] = m.b.delta
+    return grads
+end
+
+
+function gradsof(m::MLP)
+    hlayers = m.layernum-1
+    grads = Vector(undef,0)
+    for i = 1:hlayers
+        append!(grads, gradsof(m.parameters[i]))
+    end
+    return grads
+end
+
+
+function zerograds(m::dense)
+    for v in gradsof(m)
+        v .= zero(v)
+    end
+end
+
+
+function zerograds(m::MLP)
+    for v in gradsof(m)
+        v .= zero(v)
+    end
+end
+
+
 function paramsof(m::dense)
-    # variable parameters
     params = Vector(undef,2)
     params[1] = m.w
     params[2] = m.b
@@ -75,53 +106,39 @@ function paramsof(m::MLP)
     hlayers = m.layernum-1
     params = Vector(undef,0)
     for i = 1:hlayers
-        append!(params, paramsof(m.parameter[i]))
+        append!(params, paramsof(m.parameters[i]))
     end
     return params
 end
 
 
-function gradof(m::dense)
-    grad = Vector(undef, 2)
-    grad[1] = m.w.delta
-    grad[2] = m.b.delta
-    return grad
+function paramsof(m::dense)
+    params = Vector(undef,2)
+    params[1] = m.w
+    params[2] = m.b
+    return params
 end
 
 
-function gradof(m::MLP)
+function paramsof(m::MLP)
     hlayers = m.layernum-1
-    grad = Vector(undef,0)
+    params = Vector(undef,0)
     for i = 1:hlayers
-        append!(grad, gradof(m.parameter[i]))
+        append!(params, paramsof(m.parameters[i]))
     end
-    return grad
-end
-
-
-function zerograd(m::dense)
-    for v in gradof(m)
-        v .= zero(v)
-    end
-end
-
-
-function zerograd(m::MLP)
-    for v in gradof(m)
-        v .= zero(v)
-    end
+    return params
 end
 
 
 function forward(model::MLP, input::Variable)
-    f = model.parameter[1].f
-    w = model.parameter[1].w
-    b = model.parameter[1].b
+    f = model.parameters[1].f
+    w = model.parameters[1].w
+    b = model.parameters[1].b
     x = f( matAddVec(w * input, b) )
     for i = 2:model.layernum-1
-        f = model.parameter[i].f
-        w = model.parameter[i].w
-        b = model.parameter[i].b
+        f = model.parameters[i].f
+        w = model.parameters[i].w
+        b = model.parameters[i].b
         x = f( matAddVec(w * x, b) )
     end
     return x
@@ -138,15 +155,15 @@ end
 
 
 function predicate(model::MLP, input)
-    f = model.parameter[1].f
-    w = model.parameter[1].w.value
-    b = model.parameter[1].b.value
-    x = f.(w * input .+ b)
+    f = model.parameters[1].f
+    w = model.parameters[1].w.value
+    b = model.parameters[1].b.value
+    x = f(w * input .+ b)
     for i = 2:model.layernum-1
-        f = model.parameter[i].f
-        w = model.parameter[i].w.value
-        b = model.parameter[i].b.value
-        x = f.(w*x .+ b)
+        f = model.parameters[i].f
+        w = model.parameters[i].w.value
+        b = model.parameters[i].b.value
+        x = f(w*x .+ b)
     end
     return x
 end
@@ -156,7 +173,7 @@ function predicate(model::dense, input)
     f = model.f
     w = model.w.value
     b = model.b.value
-    x = f.(w * input .+ b)
+    x = f(w * input .+ b)
     return x
 end
 
