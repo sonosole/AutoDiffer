@@ -276,7 +276,7 @@ function relu(var::Variable)
 end
 
 
-function relu(x)
+function relu(x::Array)
     return max.(0.0, x)
 end
 
@@ -293,7 +293,7 @@ function leakyrelu(var::Variable)
 end
 
 
-function leakyrelu(x)
+function leakyrelu(x::Array)
     return max.(0.1 .* x, x)
 end
 
@@ -310,7 +310,7 @@ function sigmoid(var::Variable)
 end
 
 
-function sigmoid(x)
+function sigmoid(x::Array)
     return 1.0 ./ (1.0 .+ exp.(-x))
 end
 
@@ -320,7 +320,7 @@ function swish(var::Variable)
 end
 
 
-function swish()
+function swish(x::Array)
     return x ./ (1.0 .+ exp.(-x))
 end
 
@@ -350,11 +350,11 @@ function softmax(var::Variable)
 end
 
 
-function softmax(x::Array{T,2}) where T
+function softmax(x::Array)
     xmax = maximum(x, dims=1)
-    y = exp.(x .- Xmax)
-    ysum = sum(y, dims=1)
-    y ./= ysum
+    prob = exp.(x .- xmax)
+    psum = sum(prob, dims=1)
+    return (prob ./ psum)
 end
 
 
@@ -447,7 +447,7 @@ function softplus(var::Variable)
 end
 
 
-function softplus(x)
+function softplus(x::Array)
     return log.( 1.0 .+ exp.(x) )
 end
 
@@ -464,6 +464,11 @@ function Base.:exp(var::Variable)
 end
 
 
+function Base.:exp(x::Array)
+    return exp.(x)
+end
+
+
 function Base.:log(var::Variable)
     out = Variable(log.(var.value), var.trainable)
     if var.trainable
@@ -476,6 +481,11 @@ function Base.:log(var::Variable)
 end
 
 
+function Base.:log(x::Array)
+    return log.(x)
+end
+
+
 function Base.:abs(var::Variable)
     out = Variable(abs.(var.value), var.trainable)
     if var.trainable
@@ -485,6 +495,11 @@ function Base.:abs(var::Variable)
         push!(graph.backward, absBackward)
     end
     return out
+end
+
+
+function Base.:abs(x)
+    return abs.(x)
 end
 
 
@@ -513,6 +528,11 @@ function Base.:exp2(var::Variable)
 end
 
 
+function Base.:exp2(x::Array)
+    return exp2.(x)
+end
+
+
 function Base.:exp10(var::Variable)
     # EXP10 represents y = 10^x
     out = Variable(exp10.(var.value), var.trainable)
@@ -523,6 +543,11 @@ function Base.:exp10(var::Variable)
         push!(graph.backward, exp10Backward)
     end
     return out
+end
+
+
+function Base.:exp10(x::Array)
+    return exp10.(x)
 end
 
 
@@ -539,6 +564,11 @@ function Base.:log2(var::Variable)
 end
 
 
+function Base.:log2(x::Array)
+    return log2.(x)
+end
+
+
 function Base.:log10(var::Variable)
     # LOG10 represents y = log10(x)
     out = Variable(log10.(var.value), var.trainable)
@@ -549,6 +579,11 @@ function Base.:log10(var::Variable)
         push!(graph.backward, log10Backward)
     end
     return out
+end
+
+
+function Base.:log10(x::Array)
+    return log10.(x)
 end
 
 
@@ -565,6 +600,11 @@ function Base.:sec(var::Variable)
 end
 
 
+function Base.:sec(x::Array)
+    return sec.(x)
+end
+
+
 function Base.:sqrt(var::Variable)
     # SQRT represents y = sqrt(x)
     out = Variable(sqrt.(var.value), var.trainable)
@@ -575,6 +615,11 @@ function Base.:sqrt(var::Variable)
         push!(graph.backward, sqrtBackward)
     end
     return out
+end
+
+
+function Base.:sqrt(x::Array)
+    return sqrt.(x)
 end
 
 
@@ -591,6 +636,12 @@ function Base.:tan(var::Variable)
 end
 
 
+
+function Base.:tan(x::Array)
+    return tan.(x)
+end
+
+
 function Base.:tand(var::Variable)
     out = Variable(tand.(var.value), var.trainable)
     if var.trainable
@@ -603,6 +654,11 @@ function Base.:tand(var::Variable)
 end
 
 
+function Base.:tand(x::Array)
+    return tand.(x)
+end
+
+
 function Base.:tanh(var::Variable)
     out = Variable(tanh.(var.value), var.trainable)
     if var.trainable
@@ -612,6 +668,11 @@ function Base.:tanh(var::Variable)
         push!(graph.backward, tanhBackward)
     end
     return out
+end
+
+
+function Base.:tanh(x::Array)
+    return tanh.(x)
 end
 
 
@@ -628,6 +689,11 @@ function Base.:sin(var::Variable)
 end
 
 
+function Base.:sin(x::Array)
+    return sin.(x)
+end
+
+
 function Base.:sinc(var::Variable)
     # sinc represents y = sin(pi*x)/(pi*x)
     out = Variable(sinc.(var.value), var.trainable)
@@ -638,6 +704,11 @@ function Base.:sinc(var::Variable)
         push!(graph.backward, sincBackward)
     end
     return out
+end
+
+
+function Base.:sinc(x::Array)
+    return sinc.(x)
 end
 
 
@@ -653,6 +724,11 @@ function Base.:sind(var::Variable)
 end
 
 
+function Base.:sind(x::Array)
+    return sind.(x)
+end
+
+
 function Base.:sinpi(var::Variable)
     out = Variable(sinpi.(var.value), var.trainable)
     if var.trainable
@@ -662,6 +738,11 @@ function Base.:sinpi(var::Variable)
         push!(graph.backward, sinpiBackward)
     end
     return out
+end
+
+
+function Base.:sinpi(x::Array)
+    return sinpi.(x)
 end
 
 
@@ -677,6 +758,11 @@ function Base.:cos(var::Variable)
 end
 
 
+function Base.:cos(::Array)
+    return cos.(x)
+end
+
+
 function Base.:inv(var::Variable)
     out = Variable(inv.(var.value), var.trainable)
     if var.trainable
@@ -686,6 +772,11 @@ function Base.:inv(var::Variable)
         push!(graph.backward, invBackward)
     end
     return out
+end
+
+
+function Base.:inv(x::Array)
+    return inv.(x)
 end
 
 
