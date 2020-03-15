@@ -39,13 +39,14 @@ label = ...
 topology = [2, 128, 2]
 operator = [relu, softmax]
 mlpmodel = MLP(topology, operator)
+params   = paramsof(mlpmodel)
 
 for i=1:epoch
     outs = forward(mlpmodel, Variable(input))
     COST = crossEntropyLoss(outs, Variable(label))
-    zerograd(mlpmodel)
+    zerograds(mlpmodel)
     backward()
-    update(paramsof(mlpmodel), lrate)
+    update(params, learnRate)
     println("loss: ", COST.value)
 end
 ```
@@ -54,9 +55,9 @@ end
 ## 变量 Variable 说明
 变量用来存储计算图的节点，变量主要有如下属性
 ```julia
-value     # 节点的前向计算结果
-delta     # 损失对此节点的梯度
-trainable # 此节点是否是网络需要训练的参数
+value      # 节点的前向计算结果
+delta      # 损失对此节点的梯度
+trainable  # 此节点是否是网络需要训练的参数
 ```
 
 ## 技术基础
