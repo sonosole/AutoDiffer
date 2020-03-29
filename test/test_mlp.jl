@@ -2,41 +2,41 @@ include("../src/mlp.jl")
 using Gadfly
 
 # first class data and lable
-x1 = 3*randn(2,2000);
+input1 = 3*randn(2,2000);
 label1 = zeros(2,2000);
 label1[1,:] .= 1.0;
 
 # second class data and lable
 t = 0:pi/1000:2*pi;
-x2 = zeros(2,length(t));
+input2 = zeros(2,length(t));
 label2 = zeros(2,length(t));
 label2[2,:] .= 1.0;
 for i = 1:length(t)
     r = randn(1,1);
     r = r .+ 17.0;
-    x2[1,i] = r[1].*cos(t[i]);
-    x2[2,i] = r[1].*sin(t[i]);
+    input2[1,i] = r[1].*cos(t[i]);
+    input2[2,i] = r[1].*sin(t[i]);
 end
 
 
-input = hcat(x1,x2)
+input = hcat(input1,input2)
 label = hcat(label1,label2)
 
 topology = [2, 32,16,8, 2]
 operator = [relu, relu, swish, softmax]
 mlpmodel = MLP(topology, operator)
-params   = paramsof(mlpmodel)
+paramter = paramsof(mlpmodel)
 
 epoch = 1500
-lrate = 2e-6
+lrate = 1e-5
 lossval = zeros(epoch,1)
 tic = time()
 for i=1:epoch
     outs = forward(mlpmodel, Variable(input))
-    COST = mseLoss(outs, Variable(label))
-    zerograds(mlpmodel)
+    COST = crossEntropyLoss(outs, Variable(label))
     backward()
-    update(params, lrate)
+    update(paramter, lrate)
+    zerograds(paramter)
     lossval[i] = COST.value
 end
 toc = time()
@@ -44,8 +44,8 @@ println("\n time: ", toc-tic," sec")
 println(" loss: ", lossval[end])
 
 # a predicting example
-out1 = predicate(mlpmodel, x1 .+ 1e-4)
-out2 = predicate(mlpmodel, x2 .+ 1e-4)
+out1 = predicate(mlpmodel, input1 .+ 1e-4)
+out2 = predicate(mlpmodel, input2 .+ 1e-4)
 
 p0 = plot(y=(lossval .+ 1e-100), Geom.line);
 p1 = plot(
