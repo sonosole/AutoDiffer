@@ -44,9 +44,9 @@ params   = paramsof(mlpmodel)
 for i=1:epoch
     outs = forward(mlpmodel, Variable(input))
     COST = crossEntropyLoss(outs, Variable(label))
-    zerograds(mlpmodel)
     backward()
     update(params, learnRate)
+    zerograds(params)
     println("loss: ", COST.value)
 end
 ```
