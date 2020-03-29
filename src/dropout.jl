@@ -5,6 +5,11 @@ mutable struct dropout <: Block
 end
 
 
+function paramsof(m::dropout)
+    return nothing
+end
+
+
 function forward(d::dropout, var::Variable)
     # 对网络激活节点进行灭活
     # 属于in-place操作,但是输入输出共享节点值引用
@@ -20,7 +25,7 @@ function forward(d::dropout, var::Variable)
         push!(out.parents,  var)
         push!(graph.backward, dropoutBackward)
     end
-    return out, nothing
+    return out
 end
 
 
