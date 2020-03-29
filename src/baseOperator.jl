@@ -44,6 +44,13 @@ function update(vars::Array{Any,1}, lr)
 end
 
 
+function zerograds(parameters)
+    for v in parameters
+        v.delta .= 0.0
+    end
+end
+
+
 # -----------------------------------------------
 # 常用数学操作 点乘、点加、矩阵乘、数乘、数加 .......
 # -----------------------------------------------
