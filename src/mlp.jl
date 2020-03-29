@@ -82,33 +82,15 @@ end
 
 function zerograds(m::dense)
     for v in gradsof(m)
-        v .= zero(v)
+        v .= 0.0
     end
 end
 
 
 function zerograds(m::MLP)
     for v in gradsof(m)
-        v .= zero(v)
+        v .= 0.0
     end
-end
-
-
-function paramsof(m::dense)
-    params = Vector(undef,2)
-    params[1] = m.w
-    params[2] = m.b
-    return params
-end
-
-
-function paramsof(m::MLP)
-    hlayers = m.layernum-1
-    params = Vector(undef,0)
-    for i = 1:hlayers
-        append!(params, paramsof(m.parameters[i]))
-    end
-    return params
 end
 
 
