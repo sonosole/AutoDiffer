@@ -61,7 +61,7 @@ trainable  # 此节点是否是网络需要训练的参数
 ```
 
 ## 技术基础
-+ 微分公式
++ 全微分
 + 链式法则
 + 闭包函数
 + 有向无环图 DAG
@@ -73,7 +73,7 @@ trainable  # 此节点是否是网络需要训练的参数
 + 矩阵相乘 A * B
 + 矩阵拼接 vcat [A; B]
 + tan/tand/tanh + sin/sinc/sind/sinpi + log/log2/log10 + exp/exp2/exp10 + cos + swish + relu + leakyrelu + sigmoid + softmax + sqrt + inv
-+ crossEntropy + mse + binaryCrossEntropy
++ crossEntropy + mse + binaryCrossEntropy + ctc
 
 ## TODOoo List
 + 基础网络架构 RNN + LSTM + IndRNN
