@@ -128,7 +128,7 @@ end
 function testme()
     p = featparams()
     getfeat = initfeat(p)
-    wav = chirp(10,16000,10.0,8000.0)
+    wav = chirp(1,16000,10.0,8000.0)
     tic = time()
     feat = getfeat(wav)
     toc = time()
