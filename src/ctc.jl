@@ -108,7 +108,7 @@ end
 
 function testctc()
     S = 5
-    T = 8000
+    T = 30000
     x = 0.01*rand(S,T)
     P = x
 
@@ -121,13 +121,15 @@ function testctc()
     toc = time()
     println("loglikely = ",loglikely)
     println("ctc_time  = ",(toc-tic)*1000," ms")
-    plot(
+    Gadfly.plot(
     layer(y=r[1,:],Geom.line,Theme(default_color=colorant"red")),
     layer(y=r[2,:],Geom.line,Theme(default_color=colorant"yellow")),
     layer(y=r[3,:],Geom.line,Theme(default_color=colorant"blue")),
     layer(y=r[4,:],Geom.line,Theme(default_color=colorant"green")),
     layer(y=r[5,:],Geom.line,Theme(default_color=colorant"orange"))
     )
+
+
 end
 
 
@@ -145,7 +147,7 @@ function DNN_CTC_Without_Softmax(var::Variable, seq)
 
     if var.trainable
         function DNN_CTC_Without_Softmax_Backward()
-            var.delta += (var.value - r) .* fac
+            var.delta += (out.value - r) .* fac
         end
         push!(graph.backward, DNN_CTC_Without_Softmax_Backward)
     end
