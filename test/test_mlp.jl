@@ -1,5 +1,4 @@
-include("../src/mlp.jl")
-using Gadfly
+using UnicodePlots
 
 # first class data and lable
 input1 = 3*randn(2,2000);
@@ -18,37 +17,114 @@ for i = 1:length(t)
     input2[2,i] = r[1].*sin(t[i]);
 end
 
-
+# make model's input and label
 input = hcat(input1,input2)
 label = hcat(label1,label2)
 
-topology = [2, 32,16,8, 2]
-operator = [relu, relu, swish, softmax]
-mlpmodel = MLP(topology, operator)
-paramter = paramsof(mlpmodel)
+dst = densityplot(input2[1,:],input2[2,:],color=:red);
+densityplot!(dst,input1[1,:],input1[2,:],color=:yellow)
 
-epoch = 1500
-lrate = 1e-5
-lossval = zeros(epoch,1)
+
+epoch     = 700
+lrate     = 1e-5
+
+# parameters for constructing a Multi-Layer-Perceptron
+topology  = [2, 32,32,32, 2]
+operator  = [relu, relu, relu, softmax]
+
+# train a model with sgd
+mlpmodel  = MLP(topology, operator)
+parameter = paramsof(mlpmodel)
+lossval1  = zeros(epoch,1)
 tic = time()
-for i=1:epoch
+for i = 1:epoch
     outs = forward(mlpmodel, Variable(input))
     COST = crossEntropyLoss(outs, Variable(label))
     backward()
-    update(paramter, lrate)
-    zerograds(paramter)
-    lossval[i] = COST.value
+    update(parameter, lrate)
+    zerograds(parameter)
+    lossval1[i] = COST.value
 end
 toc = time()
-println("\n time: ", toc-tic," sec")
-println(" loss: ", lossval[end])
+println("\n======== SGD =========")
+println(" time: ", toc-tic," sec")
+println(" loss: ", lossval1[end])
 
-# a predicting example
-out1 = predicate(mlpmodel, input1 .+ 1e-4)
-out2 = predicate(mlpmodel, input2 .+ 1e-4)
 
-p0 = plot(y=(lossval .+ 1e-100), Geom.line);
-p1 = plot(
-layer(x=out1[1,:],y=out1[2,:],Theme(default_color=colorant"blue")),
-layer(x=out2[1,:],y=out2[2,:],Theme(default_color=colorant"red")))
-vstack(p0,p1)
+# train a model with Momentum optimizer
+mlpmodel  = MLP(topology, operator)
+parameter = paramsof(mlpmodel)
+optimizer = Momentum(parameter;learnRate=lrate,inertia=0.9)
+lossval2  = zeros(epoch,1)
+tic = time()
+for i = 1:epoch
+    outs = forward(mlpmodel, Variable(input))
+    COST = crossEntropyLoss(outs, Variable(label))
+    backward()
+    update(optimizer,parameter)
+    zerograds(parameter)
+    lossval2[i] = COST.value
+end
+toc = time()
+println("\n======== Momentum =========")
+println(" time: ", toc-tic," sec")
+println(" loss: ", lossval2[end])
+
+
+# train a model with Adam optimizer
+mlpmodel  = MLP(topology, operator)
+parameter = paramsof(mlpmodel)
+optimizer = Adam(parameter;learnRate=1e-3,b1=0.9,b2=0.9)
+lossval3  = zeros(epoch,1)
+tic = time()
+for i = 1:epoch
+    outs = forward(mlpmodel, Variable(input))
+    COST = crossEntropyLoss(outs, Variable(label))
+    backward()
+    update(optimizer,parameter)
+    zerograds(parameter)
+    lossval3[i] = COST.value
+end
+toc = time()
+println("\n======== Adam =========")
+println(" time: ", toc-tic," sec")
+println(" loss: ", lossval3[end])
+
+
+p1 = lineplot(vec(log.(lossval1)),color =:red,name ="sgd")
+p2 = lineplot(vec(log.(lossval2)),color =:yellow,name ="Momentum")
+p3 = lineplot(vec(log.(lossval3)),color =:green,name ="Adam")
+
+plt = lineplot(vec(log.(lossval1)),color =:red,name ="sgd")
+lineplot!(plt,vec(log.(lossval2)),color =:yellow,name ="Momentum")
+lineplot!(plt,vec(log.(lossval3)),color =:green,name ="Adam")
+
+
+
+# train a model with Adam optimizer with Dropout
+mlpmodel  = Chain(
+            dense(2,32),
+            dropout(0.1),
+            dense(32,32),
+            dropout(0.1),
+            dense(32,32),
+            dropout(0.1),
+            dense(32,2,softmax)
+            )
+parameter = paramsof(mlpmodel)
+optimizer = Adam(parameter;learnRate=1e-3,b1=0.9,b2=0.999)
+lossval4  = zeros(epoch,1)
+tic = time()
+for i = 1:epoch
+    outs = forward(mlpmodel, Variable(input))
+    COST = crossEntropyLoss(outs, Variable(label))
+    backward()
+    update(optimizer,parameter)
+    zerograds(parameter)
+    lossval4[i] = COST.value
+end
+toc = time()
+println("\n======== Adam with Dropout =========")
+println(" time: ", toc-tic," sec")
+println(" loss: ", lossval4[end])
+p4 = lineplot(vec(log.(lossval4)),color =:white,name ="Adam with Dropout")
