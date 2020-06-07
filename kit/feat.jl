@@ -1,6 +1,4 @@
 using FFTW
-include("./chirp.jl")
-
 
 mutable struct featparams
     # 分帧参数
@@ -9,7 +7,7 @@ mutable struct featparams
     # 梅尔滤波参数
     numBanks::Int
     numFFT::Int
-    alpha
+    alpha::Real
     fs::Int
     # 特征拼接参数
     leftpad::Int
@@ -21,17 +19,17 @@ mutable struct featparams
     featLength::Int  # 超帧维度=拼帧数*每帧特征维度
     featShift::Int   # 超帧位移=移帧数*每帧特征维度
 
-    function featparams()
-        winLength  = 256
-        winShift   = 128
-        numBanks   = 32
-        numFFT     = 256
-        alpha      = 0.97
-        fs         = 16000
-        leftpad    = 2
-        rightpad   = 2
-        stackShift = 1
-        maxfreq    = floor(Int,numFFT/2)
+    function featparams(;
+        winLength  = 256,
+        winShift   = 128,
+        numBanks   = 32,
+        numFFT     = 256,
+        alpha      = 0.97,
+        fs         = 16000,
+        leftpad    = 7,
+        rightpad   = 7,
+        stackShift = 3)
+        maxfreq    = numFFT>>1
         stackSize  = leftpad + 1 + rightpad   # 超帧含有的小帧个数
         featLength = stackSize * numBanks     # 超帧维度=拼帧数*每帧特征维度
         featShift  = stackShift * numBanks    # 超帧位移=移帧数*每帧特征维度
@@ -44,12 +42,12 @@ function filterbanks(numBanks::Int, numFFT::Int, fs::Int)
     # numBanks - 滤波带个数,比如 32 assert(numBanks<numFFT/2)
     # numFFT   - FFT点数,比如 256,128 etc.
     # fs       - 采样率,比如 16000kHz/8000kHz
-    MAX   = floor(UInt16,numFFT/2);          # 正频率部分的下标最大值
-    freq  = (0:(MAX-1))/MAX * fs/2;          # 下标映射到频率
-    Fmel  = 2595*log10.(1 .+ freq/700);      # 频率映射到梅尔频率
-    dFmel = Fmel[MAX]/(numBanks+1);          # 将Mel带平分成 N+1 份
-    bank  = zeros(numBanks, MAX);            # N个滤波器的频域权重系数
-    cFmel = 0.0;                             # 每个Mel频带的中心Mel频率
+    MAX   = numFFT>>1;                    # 正频率部分的下标最大值
+    freq  = (0:(MAX-1))/MAX * fs/2;       # 下标映射到频率
+    Fmel  = 2595*log10.(1 .+ freq/700);   # 频率映射到梅尔频率
+    dFmel = Fmel[MAX]/(numBanks+1);       # 将Mel带平分成
+    bank  = zeros(numBanks, MAX);         # 滤波器的频域权重系数
+    cFmel = 0.0;                          # 每个Mel频带的中心Mel频率
     for n = 1:numBanks
         cFmel = cFmel + dFmel
         for m = 1:MAX
@@ -87,7 +85,6 @@ end
 
 
 function initfeat(params::featparams)
-    # 参数赋值
     winLength  = params.winLength
     winShift   = params.winShift
     numBanks   = params.numBanks
@@ -107,12 +104,13 @@ function initfeat(params::featparams)
         # 滤波 + 分帧 + 提取小特征 + 拼接小特征
         wavedata  = filterwav(wav, alpha)
         frames, n = splitwav(wavedata, winfunc, winLength, winShift)
-        numsfeats = floor(UInt, (n - stackSize)/stackShift) + 1
+        numsfeats = floor(Int, (n - stackSize)/stackShift) + 1
         superfeat = zeros(featLength, numsfeats)
 
         tmp = fft(frames,1)                 # 时域到频域,按列计算
-        pow = abs.(tmp[1:maxfreq,:])        # 功率谱,提取有用部分
-        mel = log.(melbank * pow .+ 1e-9)   # 对数梅尔功率谱
+        pow = abs2.(tmp[1:maxfreq,:])       # 功率谱,提取有用部分
+        # mel = log.(melbank * pow .+ 1e-9)   # 对数梅尔功率谱
+        mel = melbank * pow
 
         firstIds = (0:numsfeats-1) .* featShift .+ 1  # 超帧起始下标数组
         lasstIds = firstIds .+ (featLength - 1)       # 超帧结束下标数组
@@ -125,14 +123,22 @@ function initfeat(params::featparams)
 end
 
 
-function testme()
-    p = featparams()
-    getfeat = initfeat(p)
-    wav = chirp(1,16000,10.0,8000.0)
-    tic = time()
-    feat = getfeat(wav)
-    toc = time()
-    println("=============================================================")
-    println("time to extrac features from 1 sec wav: ",(toc-tic)*1000," ms")
-    println("=============================================================")
-end
+# function testfeat()
+#     p = featparams()
+#     getfeat = initfeat(p)
+#     wav = chirp(1,16000,0.0,8000.0)
+#     tic = time()
+#     feat = getfeat(wav)
+#     toc = time()
+#     ms = (toc-tic)*1000
+#     rt = floor(1000 / ms)
+#     println("=============================================================")
+#     println("time to extrac features from 1 sec wav: ",ms," ms")
+#     println(" rts to extrac features from 1 sec wav: ", rt)
+#     println("=============================================================")
+#     return feat
+# end
+
+
+# 实时速度约 895 倍 (i7-3630QM CPU@2.4GHz)
+# 相当于 1 秒可以处理 895 秒的16KHz@16bit的 wav 数据
