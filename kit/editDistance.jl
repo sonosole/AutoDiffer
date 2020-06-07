@@ -1,4 +1,4 @@
-function DistanceMatrix(s::String, t::String)
+function DistanceMatrix(s, t)
     m = length(s)
     n = length(t)
     d = zeros(Int32, m + 1, n + 1)
@@ -17,23 +17,25 @@ function DistanceMatrix(s::String, t::String)
                 d[i,j] = d[i-1,j-1]
             else
                 d[i,j] = min(d[i-1, j], d[i, j-1], d[i-1, j-1]) + 1
+                #=
+                d[i, j] = minimum(d[i-1, j] + 1,     // deletion -> 0
+                                   d[i, j-1] + 1,    // insertion -> 1
+                                   d[i-1, j-1] + 1)  // substitution -> 2
+                =#
             end
-            #=
-            d[i, j] := minimum(d[i-1, j] + 1,    // deletion -> 0
-                               d[i, j-1] + 1,    // insertion -> 1
-                               d[i-1, j-1] + 1)  // substitution -> 2
-            =#
         end
     end
     return d
 end
 
-function editDist(s::String, t::String)
+
+function editDist(s, t)
     array = DistanceMatrix(s, t);
     return array[length(s)+1,length(t)+1]
 end
 
-function showDist(s::String, t::String)
+
+function showDist(s, t)
     array = DistanceMatrix(s, t)
     for i = 1:length(s)+1
         for j = 1:length(t)+1
@@ -43,9 +45,8 @@ function showDist(s::String, t::String)
     end
 end
 
-# print( "the distance from \33[33m",ARGS[1],"\e[0m to \33[33m",ARGS[2],"\e[0m is : ", editDist(ARGS[1],ARGS[2]) )
-# print( "\n" )
-# showDist(ARGS[1],ARGS[2])
 
-# showDist("abc","abcd")
-# editDist("a b c","abcdedf")
+
+function testme()
+    editDist("abc", "abcd")
+end
