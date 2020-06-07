@@ -1,7 +1,7 @@
 # AutoDiffer
 **此项目仍在开发中...**
 
-这个项目实现了一些基础操作的反向梯度计算方法，借助这些基础的操作，我们可以搭建任意复杂的神经网络模型，用户只要定义好前向传播、训练准则、损失函数，就可以轻松训练自己的网络。
+这个项目实现了一些基础操作的反向梯度计算方法，借助这些基础操作，我们可以搭建任意复杂的神经网络模型，用户只需要定义好前向传播、训练准则、损失函数，就可以轻松训练自己的网络。
 
 ## 示例代码一
 测试 ReLU 激活函数
@@ -67,16 +67,40 @@ trainable  # 此节点是否是网络需要训练的参数
 + 有向无环图 DAG
 
 ## 目前可微分的基本操作
-+ 矩阵与常数相加、相乘（数乘、数加）c .+ A,  c .* A
-+ 矩阵按对应位置元素相加、相乘（点加、点乘）A .+ B,  A .* B
-+ 矩阵按列与列向量相加、相乘 A .+ Vec, A .* Vec
-+ 矩阵相乘 A * B
-+ 矩阵拼接 vcat [A; B]
-+ tan/tand/tanh + sin/sinc/sind/sinpi + log/log2/log10 + exp/exp2/exp10 + cos + swish + relu + leakyrelu + sigmoid + softmax + sqrt + inv
-+ crossEntropy + mse + binaryCrossEntropy + ctc
+
+|OPS| Meaning              | Example                                             |
+| - | -------------------- | --------------------------------------------------- |
+| + |  MatOrVec + Constant | Variable(rand(M,N)) + 7.0                           |
+| + |  Constant + MatOrVec | 7.0 + Variable(rand(M,N))                           |
+| + |  MatOrVec + MatOrVec | Variable(rand(M,N)) + Variable(rand(M,N))           |
+| - |  MatOrVec - Constant | Variable(rand(M,N)) - 7.0                           |
+| - |  Constant - MatOrVec | 7.0 - Variable(rand((M,N))                          |
+| - |  MatOrVec - MatOrVec | Variable(rand(M,N)) - Variable(rand((M,N))          |
+| * |  MatOrVec * Constant | Variable(rand((M,N)) * 7.0                          |
+| * |  Constant * MatOrVec | 7.0 * Variable(rand((M,N))                          |
+| * |  MatOrVec * MatOrVec | Variable(rand(M,N)) * Variable(rand(N,K))           |
+| ^ | MatOrVec ^ N         |  Variable(rand((M,N)) ^ 7.0                         |
+| dotAdd    | .+           |  dotAdd(Variable(rand((M,N)), Variable(rand((M,N))) |
+| dotMul    | .\*          |  dotMul(Variable(rand((M,N)), Variable(rand((M,N))) |
+| matAddVec | mat .+ Vec   |  matAddVec(rand(M,N)), Variable(rand(N,1))          |
+| matMulVec | mat .* Vec   |  matMulVec(rand(M,N)), Variable(rand(N,1))          |
+
++ tan/tand/tanh + sin/sinc/sind/sinpi + log/log2/log10 + exp/exp2/exp10 + cos + swish + relu + P1Relu + leakyrelu + sigmoid + softmax + sqrt + inv + maxout
++ 线性聚合linearpool + 指数聚合exppool + 均值聚合meanpool + 最大值聚合maxpool
+
+## 基础损失函数
++ mse + crossEntropy + binaryCrossEntropy + ctc
+
+## 基础网络结构
++ dense 层
++ 多层感知机 MLP
++ 单层自循环 irnn 层 + 多层自循环 IRNN 块
++ 残差块 residual
++ 线性映射层 linear
++ dropout 层
 
 ## TODOoo List
-+ 基础网络架构 RNN + LSTM + IndRNN
++ 基础网络架构  GRU + LSTM
 + batchNorm
 + 卷积操作
 + GPU上的操作
