@@ -30,13 +30,18 @@ function clear()
 end
 
 
-function update(var::Variable, lr)
-    # 更新单个 Variable
-    var.value .-= lr .* var.delta
+function clip(x, clipval)
+    x = (abs(x) > clipval) ? clipval * sign(x) : x
 end
 
 
-function update(vars::Array{Any,1}, lr)
+function update(var::Variable, lr)
+    # 更新单个 Variable
+    @. var.value -= lr * var.delta
+end
+
+
+function update(vars::Vector{Variable}, lr)
     # 更新 Variable 数组
     for var in vars
         update(var, lr)
@@ -55,6 +60,7 @@ end
 # 常用数学操作 点乘、点加、矩阵乘、数乘、数加 .......
 # -----------------------------------------------
 import Base.+
+import Base.-
 import Base.*
 import Base.^
 
@@ -83,6 +89,17 @@ import Base.sinc
 import Base.sind
 import Base.sinpi
 import Base.inv
+import Base.size
+
+
+function Base.:size(var::Variable)
+    return size(var.value)
+end
+
+
+function Base.:size(var::Variable,dim::Int)
+    return size(var.value,dim)
+end
 
 
 function Base.:+(var::Variable, constant)
@@ -100,12 +117,38 @@ end
 
 function Base.:+(constant, var::Variable)
     # 矩阵、向量与常数按元素相加
-    out = Variable(var.value .+ constant, var.trainable)
+    out = Variable(constant .+ var.value, var.trainable)
     if var.trainable
         function addBackward()
             var.delta += out.delta
         end
         push!(graph.backward, addBackward)
+    end
+    return out
+end
+
+
+function Base.:-(var::Variable, constant)
+    # 矩阵、向量与常数按元素相减法
+    out = Variable(var.value .- constant, var.trainable)
+    if var.trainable
+        function minusBackward()
+            var.delta += out.delta
+        end
+        push!(graph.backward, minusBackward)
+    end
+    return out
+end
+
+
+function Base.:-(constant, var::Variable)
+    # 矩阵、向量与常数按元素相减法
+    out = Variable(constant .- var.value, var.trainable)
+    if var.trainable
+        function minusBackward()
+            var.delta -= out.delta
+        end
+        push!(graph.backward, minusBackward)
     end
     return out
 end
@@ -142,7 +185,7 @@ function Base.:^(var::Variable, n::Int)
     out = Variable(var.value .^ n, var.trainable)
     if var.trainable
         function powerBackward()
-            var.delta += n .* out.value ./ (var.value .+ 1e-200) .* out.delta
+            var.delta += n .* out.value ./ (var.value .+ 1e-38) .* out.delta
         end
         push!(graph.backward, powerBackward)
     end
@@ -151,8 +194,8 @@ end
 
 
 function Base.:vcat(var1::Variable, var2::Variable)
-    row1, col = size(var1.value)
-    row2, col = size(var2.value)
+    row1, col = size(var1)
+    row2, col = size(var2)
     trainable = (var1.trainable || var2.trainable)
     out = Variable(vcat(var1.value, var2.value), trainable)
 
@@ -171,7 +214,7 @@ end
 
 function dotAdd(var1::Variable, var2::Variable)
     # 相同形状的矩阵或者向量按对应位置的元素相加，即点加操作
-    @assert(size(var1.value) == size(var2.value))
+    @assert(size(var1) == size(var2))
     trainable = (var1.trainable || var2.trainable)
     out = Variable(var1.value .+ var2.value, trainable)
     if trainable
@@ -200,9 +243,24 @@ function Base.:+(var1::Variable, var2::Variable)
 end
 
 
+function Base.:-(var1::Variable, var2::Variable)
+    # 相同形状的矩阵或者向量按对应位置的元素相加，即点加操作
+    trainable = (var1.trainable || var2.trainable)
+    out = Variable(var1.value - var2.value, trainable)
+    if trainable
+        function add2varBackward()
+            var1.delta += out.delta
+            var2.delta -= out.delta
+        end
+        push!(graph.backward, add2varBackward)
+    end
+    return out
+end
+
+
 function dotMul(var1::Variable, var2::Variable)
     # 相同形状的矩阵或者向量按对应位置的元素相乘,即点乘操作
-    @assert(size(var1.value) == size(var2.value))
+    @assert(size(var1) == size(var2))
     trainable = (var1.trainable || var2.trainable)
     out = Variable(var1.value .* var2.value, trainable)
     if trainable
@@ -237,7 +295,7 @@ end
 function matAddVec(var1::Variable, var2::Variable)
     # var1 -- 充当和节点，非网络需要学习的参数
     # var2 -- 偏置列向量，是网络需要学习的参数
-    @assert(size(var1.value,1)==size(var2.value,1) && size(var2.value,2)==1)
+    @assert(size(var1,1)==size(var2,1) && size(var2,2)==1)
     trainable = (var1.trainable || var2.trainable)
     out = Variable(var1.value .+ var2.value, trainable)
     if trainable
@@ -254,7 +312,7 @@ end
 function matMulVec(var1::Variable, var2::Variable)
     # var1 -- 一般充当激活节点，非网络需要学习的参数
     # var2 -- 列向量，循环权重，是网络需要学习的参数
-    @assert(size(var1.value,1)==size(var2.value,1) && size(var2.value,2)==1)
+    @assert(size(var1,1)==size(var2,1) && size(var2,2)==1)
     trainable = (var1.trainable || var2.trainable)
     out = Variable(var1.value .* var2.value, trainable)
     if trainable
@@ -272,10 +330,11 @@ end
 # 常用激活函数 relu leakyrelu sigmoid TANH SIN COS
 # -----------------------------------------------
 function relu(var::Variable)
-    out = Variable(max.(0.0, var.value), var.trainable)
+    mask = var.value .> 0.0
+    out  = Variable(mask .* var.value, var.trainable)
     if var.trainable
         function reluBackward()
-            var.delta += max.(0.0, var.value) ./ var.value .* out.delta
+            var.delta += mask .* out.delta
         end
         push!(graph.backward, reluBackward)
     end
@@ -284,15 +343,54 @@ end
 
 
 function relu(x::Array)
-    return max.(0.0, x)
+    @. x = max(0.0, x)
+end
+
+
+function line(var::Variable)
+    mask = -1.0 .< var.value .< 1.0
+    out  = Variable(mask .* var.value, var.trainable)
+    if var.trainable
+        function lineBackward()
+            var.delta += mask .* out.delta
+        end
+        push!(graph.backward, lineBackward)
+    end
+    return out
+end
+
+
+function line(x::Array)
+    return (-1.0 .< var.value .< 1.0) .* x
+end
+
+
+function hardtanh(var::Variable)
+    mask = abs(var.value) .< 1.0
+    out  = Variable(min.(1.0, max.(-1.0, var.value)), var.trainable)
+    if var.trainable
+        function lineBackward()
+            var.delta += mask .* out.delta
+        end
+        push!(graph.backward, lineBackward)
+    end
+    return out
+end
+
+
+function hardtanh(x::Array)
+    @. x = min(1.0, max(-1.0, x))
 end
 
 
 function leakyrelu(var::Variable)
-    out = Variable(max.(0.1 .* var.value, var.value), var.trainable)
+    tempv = var.value .* 0.1
+    mask1 = var.value .> tempv
+    mask2 = .!mask1
+    out  = Variable(max.(tempv, var.value), var.trainable)
     if var.trainable
         function leakyreluBackward()
-            var.delta = max.(0.1 .* var.value, var.value) ./ var.value .* out.delta
+            var.delta = (mask1 + 0.1 .* mask2) .* out.delta
         end
         push!(graph.backward, leakyreluBackward)
     end
@@ -301,7 +399,7 @@ end
 
 
 function leakyrelu(x::Array)
-    return max.(0.1 .* x, x)
+    @. x = max(0.1 * x, x)
 end
 
 
@@ -318,7 +416,7 @@ end
 
 
 function sigmoid(x::Array)
-    return 1.0 ./ (1.0 .+ exp.(-x))
+    @. x = 1.0 / (1.0 + exp(-x))
 end
 
 
@@ -328,12 +426,12 @@ end
 
 
 function swish(x::Array)
-    return x ./ (1.0 .+ exp.(-x))
+    @. x = x / (1.0 + exp(-x))
 end
 
 
 function softmax(var::Variable)
-    row, col = size(var.value)
+    row, col = size(var)
     out = Variable(zeros(row, col), var.trainable)
 
     Xmax = maximum(var.value, dims=1)
@@ -366,7 +464,7 @@ end
 
 
 function crossEntropy(var::Variable, label::Variable)
-    @assert( size(var.value) == size(label.value) )
+    @assert( size(var) == size(label) )
     trainable = (var.trainable || label.trainable)
     out = Variable(- label.value .* log.(var.value .+ 1e-200), trainable)
     if trainable
@@ -380,7 +478,7 @@ end
 
 
 function binaryCrossEntropy(var::Variable, label::Variable)
-    @assert( size(var.value) == size(label.value) )
+    @assert( size(var) == size(label) )
     trainable = (var.trainable || label.trainable)
     tmp1 = - label.value .* log.(var.value .+ 1e-200)
     tmp2 = - (1.0 .- label.value) .* log.(1.0 .- var.value .+ 1e-200)
@@ -398,7 +496,7 @@ end
 
 
 function mse(var::Variable, label::Variable)
-    @assert( size(var.value) == size(label.value) )
+    @assert( size(var) == size(label) )
     trainable = (var.trainable || label.trainable)
     out = Variable((var.value - label.value).^2, trainable)
     if trainable
@@ -683,6 +781,16 @@ function Base.:tanh(x::Array)
 end
 
 
+function tanhshrink(var::Variable)
+    return var - tanh(var)
+end
+
+
+function tanhshrink(x::Array)
+    @. x = x - tanh(x)
+end
+
+
 # # -- sin serials --
 function Base.:sin(var::Variable)
     out = Variable(sin.(var.value), var.trainable)
@@ -753,6 +861,16 @@ function Base.:sinpi(x::Array)
 end
 
 
+function linearsin(var::Variable)
+    return sin(var) + var
+end
+
+
+function linearsin(x::Array)
+    @. x = sin(x) + x
+end
+
+
 function Base.:cos(var::Variable)
     out = Variable(cos.(var.value), var.trainable)
     if var.trainable
@@ -774,7 +892,7 @@ function Base.:inv(var::Variable)
     out = Variable(inv.(var.value), var.trainable)
     if var.trainable
         function invBackward()
-            var.delta += - out.delta ./ (var.value.^2 .+ 1e-200)
+            var.delta += - out.delta ./ (var.value.^2 .+ 1e-38)
         end
         push!(graph.backward, invBackward)
     end
@@ -788,86 +906,57 @@ end
 
 
 # -- some Aggregate operators --
-function maxAggregate(var::Variable)
+function maxpool(var::Variable)
     out = Variable(maximum(var.value, dims=2), var.trainable)
     mask = (var.value .== out.value)
     if var.trainable
-        function maxAggregateBackward()
+        function maxpoolBackward()
             var.delta += out.delta .* mask
         end
-        push!(graph.backward, maxAggregateBackward)
+        push!(graph.backward, maxpoolBackward)
     end
     return out
 end
 
 
-# # function maxAggregate(var::Array{Variable,1})
-# #     T = length(var)             # timeSteps
-# #     N = size(var[1].value, 2)   # batchSize
-# #     out = Variable( var[1].value )
-# #
-# #     for i = 1:N
-# #         for t = 1:T
-# #             out.value[:,i] .= maximum([out.value[:,i] var[t].value[:,i]], dims=2)
-# #         end
-# #     end
-# #
-# #     if graph.backProp
-# #         function backprop()
-# #             for t = 1:T
-# #                 var[t].delta += .... out.delta
-# #             end
-# #         end
-# #         out.backward = Backward
-# #         push!(graph.operator, maxAggregate)
-# #         for t = 1:T
-# #             out.value[:,i] .= maximum([out.value[:,i] var[t].value[:,i]], dims=2)
-# #             push!(var[t].children, out)
-# #             push!(out.parents, var[t])
-# #         end
-# #     return out
-# # end
-#
-#
-function meanAggregate(var::Variable)
-    fac = 1.0 / size(var.value, 2)
-    out = Variable(sum(var.value, dims=2) .* fac, var.trainable)
+function meanpool(var::Variable)
+    fac = 1.0 / size(var, 2)
+    out = Variable(fac*sum(var.value, dims=2), var.trainable)
     if var.trainable
-        function meanAggregateBackward()
-            var.delta += fac .* out.delta
+        function meanpoolBackward()
+            var.delta .+= fac * out.delta
         end
-        push!(graph.backward, meanAggregateBackward)
+        push!(graph.backward, meanpoolBackward)
     end
     return out
 end
 
 
-function linearAggregate(var::Variable)
+function linearpool(var::Variable)
     vsum1 = sum(var.value .* var.value, dims=2)
-    vsum2 = sum(var.value, dims=2) .+ 1e-200
-    out = Variable(vsum1 ./ vsum2, var.trainable)
-
+    vsum2 = sum(var.value, dims=2) .+ 1e-38
+    out   = Variable(vsum1 ./ vsum2, var.trainable)
     if var.trainable
-        function linearAggregateBackward()
-            var.delta .+= (2 .* var.value .- out.value) ./ vsum2 .* out.delta
+        function linearpoolBackward()
+            var.delta += (2 .* var.value .- out.value) ./ vsum2 .* out.delta
         end
-        push!(graph.backward, linearAggregateBackward)
+        push!(graph.backward, linearpoolBackward)
     end
     return out
 end
 
 
-function expAggregate(var::Variable)
+function exppool(var::Variable)
     temp  = exp.(var.value)
     vsum1 = sum(temp .* var.value, dims=2)
-    vsum2 = sum(temp, dims=2) .+ 1e-200
-    out = Variable(vsum1 ./ vsum2, var.trainable)
+    vsum2 = sum(temp, dims=2) .+ 1e-38
+    out   = Variable(vsum1 ./ vsum2, var.trainable)
 
     if var.trainable
-        function expAggregateBackward()
-            var.delta .+= temp ./ vsum2 .* (1.0 .+ var.value .- out.value) .* out.delta
+        function exppoolBackward()
+            var.delta += temp ./ vsum2 .* (1.0 .+ var.value .- out.value) .* out.delta
         end
-        push!(graph.backward, expAggregateBackward)
+        push!(graph.backward, exppoolBackward)
     end
     return out
 end
