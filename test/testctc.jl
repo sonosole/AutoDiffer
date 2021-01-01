@@ -1,8 +1,3 @@
-include("../src/baseStruct.jl")
-include("../src/baseOperator.jl")
-include("../src/ctc.jl")
-
-
 function testctcfn()
     S = 5
     T = 10000

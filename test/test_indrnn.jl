@@ -2,7 +2,7 @@ using UnicodePlots
 
 
 # a very simple one hidden layer seq2one model
-model = irnn(2,1,relu)
+model = indrnn(2,1,relu)
 param = paramsof(model)
 model.w.value[1] = 1.0
 model.w.value[2] = 2.0
@@ -33,7 +33,7 @@ lineplot(vec(lossv),xlabel="epoch", ylabel="Loss",margin=3)
 # a very simple two hidden layers seq2one model
 topology = [2, 32, 16, 1]
 operator = [relu, relu, leakyrelu]
-rnnmodel = IRNN(topology, operator)
+rnnmodel = INDRNN(topology, operator)
 
 param = paramsof(rnnmodel)
 epoch = 10

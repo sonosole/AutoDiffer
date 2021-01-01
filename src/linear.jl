@@ -3,7 +3,7 @@ mutable struct linear <: Block
     b::Variable # bias of hidden units
     function linear(inputSize::Int, hiddenSize::Int)
         w = randn(hiddenSize, inputSize) .* sqrt( 1 / hiddenSize )
-        b = zeros(hiddenSize, 1)
+        b = randn(hiddenSize, 1) .* sqrt( 1 / hiddenSize )
         new(Variable(w,true), Variable(b,true))
     end
 end
@@ -41,23 +41,21 @@ end
 
 
 function nparamsof(m::linear)
-    i,j = size(m.w.value)
-    k = size(m.b.value,1)
-    return (i*j+k)
+    lw = length(m.w)
+    lb = length(m.b)
+    return (lw + lb)
 end
 
 
-function forward(model::linear, input::Variable)
+function forward(model::linear, x::Variable)
     w = model.w
     b = model.b
-    x = matAddVec(w * input, b)
-    return x
+    return matAddVec(w * x, b)
 end
 
 
-function predict(model::linear, input)
+function predict(model::linear, x)
     w = model.w.value
     b = model.b.value
-    x = w * input .+ b
-    return x
+    return (w * x .+ b)
 end

@@ -22,19 +22,19 @@ end
 
 
 function nparamsof(m::maxout)
-    i,j = size(m.w.value)
-    k = size(m.b.value,1)
-    return (i*j+k)
+    lw = length(m.w)
+    lb = length(m.b)
+    return (lw + lb)
 end
 
 
-function forward(model::maxout, input::Variable)
+function forward(model::maxout, x::Variable)
     h = model.h
     k = model.k
     w = model.w
     b = model.b
-    c = size(input.value, 2)
-    x = matAddVec(w * input, b)     # dim=(h*k, c)
+    c = size(x, 2)
+    x = matAddVec(w * x, b)         # dim=(h*k, c)
     temp = reshape(x.value, h,k,c)  # dim=(h,k,c)
     maxv = maximum(temp, dims=2)    # dim=(h,1,c)
     mask = temp .== maxv            # dim=(h,k,c)
@@ -49,15 +49,22 @@ function forward(model::maxout, input::Variable)
 end
 
 
-function predict(model::maxout, input)
+function predict(model::maxout, x)
     h = model.h
     k = model.k
     w = model.w.value
     b = model.b.value
-    c = size(input, 2)
-    x = w * input .+ b              # dim=(h*k, c)
+    c = size(x, 2)
+    x = w * x .+ b                  # dim=(h*k, c)
     temp = reshape(x, h,k,c)        # dim=(h,k,c)
     maxv = maximum(temp, dims=2)    # dim=(h,1,c)
     out  = reshape(maxv, h,c)       # dim=(h,  c)
     return out
+end
+
+
+function nparamsof(m::maxout)
+    lw = length(m.w)
+    lb = length(m.b)
+    return (lw + lb)
 end

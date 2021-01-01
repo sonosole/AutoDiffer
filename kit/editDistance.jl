@@ -1,14 +1,14 @@
 function DistanceMatrix(s, t)
     m = length(s)
     n = length(t)
-    d = zeros(Int32, m + 1, n + 1)
+    d = zeros(Int32, m+1, n+1)
     # source prefixes can be transformed into empty string by dropping all characters
     for i = 0:m
-        d[i + 1, 1] = i
+        d[i+1, 1] = i
     end
     # target prefixes can be reached from empty source prefix by inserting every character
     for j = 0:n
-        d[1, j + 1] = j
+        d[1, j+1] = j
     end
    # Fill in distance matrix
     for j = 2:n + 1
@@ -46,7 +46,6 @@ function showDist(s, t)
 end
 
 
-
-function testme()
+function testeditDist()
     editDist("abc", "abcd")
 end

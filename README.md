@@ -60,13 +60,13 @@ delta      # 损失对此节点的梯度
 trainable  # 此节点是否是网络需要训练的参数
 ```
 
-## 技术基础
+## 技术基础 Basic Knowledge Used
 + 全微分
 + 链式法则
 + 闭包函数
 + 有向无环图 DAG
 
-## 目前可微分的基本操作
+## 目前可微分的基本操作 Differentiable Operators
 
 |OPS| Meaning              | Example                                             |
 | - | -------------------- | --------------------------------------------------- |
@@ -79,28 +79,31 @@ trainable  # 此节点是否是网络需要训练的参数
 | * |  MatOrVec * Constant | Variable(rand((M,N)) * 7.0                          |
 | * |  Constant * MatOrVec | 7.0 * Variable(rand((M,N))                          |
 | * |  MatOrVec * MatOrVec | Variable(rand(M,N)) * Variable(rand(N,K))           |
-| ^ | MatOrVec ^ N         |  Variable(rand((M,N)) ^ 7.0                         |
-| dotAdd    | .+           |  dotAdd(Variable(rand((M,N)), Variable(rand((M,N))) |
-| dotMul    | .\*          |  dotMul(Variable(rand((M,N)), Variable(rand((M,N))) |
-| matAddVec | mat .+ Vec   |  matAddVec(rand(M,N)), Variable(rand(N,1))          |
-| matMulVec | mat .* Vec   |  matMulVec(rand(M,N)), Variable(rand(N,1))          |
+| ^ | MatOrVec ^ N         | Variable(rand((M,N)) ^ 7.0                          |
+| dotAdd    | .+           | dotAdd(Variable(rand((M,N)), Variable(rand((M,N)))  |
+| dotMul    | .\*          | dotMul(Variable(rand((M,N)), Variable(rand((M,N)))  |
+| matAddVec | mat .+ Vec   | matAddVec(rand(M,N)), Variable(rand(N,1))           |
+| matMulVec | mat .* Vec   | matMulVec(rand(M,N)), Variable(rand(N,1))           |
 
 + tan/tand/tanh + sin/sinc/sind/sinpi + log/log2/log10 + exp/exp2/exp10 + cos + swish + relu + P1Relu + leakyrelu + sigmoid + softmax + sqrt + inv + maxout
 + 线性聚合linearpool + 指数聚合exppool + 均值聚合meanpool + 最大值聚合maxpool
 
-## 基础损失函数
+## 基础损失函数 Basic Loss Functions
 + mse + crossEntropy + binaryCrossEntropy + ctc
 
-## 基础网络结构
+## 基础网络结构 Basic Networks
 + dense 层
 + 多层感知机 MLP
-+ 单层自循环 irnn 层 + 多层自循环 IRNN 块
++ rnn 层 + RNN(堆叠rnn)
++ rin 层 + RIN(堆叠rin)
++ indrnn 层 + INDRNN(堆叠indrnn)
++ 门控循环结构,lstm + LSTM(堆叠lstm)
 + 残差块 residual
 + 线性映射层 linear
 + dropout 层
 
 ## TODOoo List
-+ 基础网络架构  GRU + LSTM
++ 基础网络架构  GRU
 + batchNorm
 + 卷积操作
 + GPU上的操作

@@ -45,3 +45,13 @@ function predict(r::residual, input)
     end
     return x + input
 end
+
+
+
+function nparamsof(r::residual)
+    c = 0
+    for i = 1:length(r.blocks)
+        c += nparamsof(r.blocks[i])
+    end
+    return c
+end

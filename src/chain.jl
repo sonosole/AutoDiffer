@@ -20,6 +20,21 @@ mutable struct Chain
 end
 
 
+function popitems(blocks::Vector{T},list) where T
+    lenb = length(blocks)
+    lenl = length(list)
+    @assert(lenb>lenl)
+    newblocks = Vector(undef,0)
+    for i = 1:lenb
+        if i in list;
+        else
+            push!(newblocks,blocks[i])
+        end
+    end
+    return newblocks
+end
+
+
 function paramsof(c::Chain)
     params = Vector{Variable}(undef,0)
     for i = 1:c.blocknum
@@ -43,24 +58,9 @@ end
 
 function resethidden(c::Chain)
     for i = 1:c.blocknum
-        if c.blocks[i] isa irnn
+        if typeof(c.blocks[i]) in RNNLIST
             resethidden(c.blocks[i])
         end
-        if c.blocks[i] isa IRNN
-            resethidden(c.blocks[i])
-        end
-        # if c.blocks[i] isa lstm
-        #     resethidden(c.blocks[i])
-        # end
-        # if c.blocks[i] isa gru
-        #     resethidden(c.blocks[i])
-        # end
-        # if c.blocks[i] isa LSTM
-        #     resethidden(c.blocks[i])
-        # end
-        # if c.blocks[i] isa GRU
-        #     resethidden(c.blocks[i])
-        # end
     end
 end
 

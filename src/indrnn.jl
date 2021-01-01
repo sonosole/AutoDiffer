@@ -1,73 +1,74 @@
-mutable struct irnn <: Block
+mutable struct indrnn <: Block
     w::Variable # input to hidden weights
     b::Variable # bias of hidden units
     u::Variable # recurrent weights
     f::Function # activation function
     h           # hidden variable
-    function irnn(inputSize::Int, hiddenSize::Int)
+    function indrnn(inputSize::Int, hiddenSize::Int)
         w = randn(hiddenSize, inputSize) .* sqrt( 2 / inputSize )
         b = zeros(hiddenSize, 1)
-        u =  eyes(hiddenSize) .* 1e-2
+        u = uniform((hiddenSize, 1);from=-0.01,to=0.1)
         new(Variable(w,true), Variable(b,true), Variable(u,true), relu, nothing)
     end
-    function irnn(inputSize::Int, hiddenSize::Int, fn::Function)
+    function indrnn(inputSize::Int, hiddenSize::Int, fn::Function)
         w = randn(hiddenSize, inputSize) .* sqrt( 2 / inputSize )
         b = zeros(hiddenSize, 1)
-        u =  eyes(hiddenSize) .* 1e-2
+        u = uniform((hiddenSize, 1);from=-0.01,to=0.1)
         new(Variable(w,true), Variable(b,true), Variable(u,true), fn, nothing)
     end
 end
 
 
-mutable struct IRNN <: Block
+mutable struct INDRNN <: Block
     layernum::Int
     topology::Vector{Int}
-    layers::Vector{irnn}
-    function IRNN(topology::Vector{Int})
+    layers::Vector{indrnn}
+    function INDRNN(topology::Vector{Int})
         layernum = length(topology) - 1
-        layers = Vector{irnn}(undef, layernum)
+        layers = Vector{indrnn}(undef, layernum)
         for i = 1:layernum-1
-            layers[i] = irnn(topology[i], topology[i+1], relu)
+            layers[i] = indrnn(topology[i], topology[i+1], relu)
         end
-        layers[layernum] = irnn(topology[layernum], topology[layernum+1], softmax)
+        layers[layernum] = indrnn(topology[layernum], topology[layernum+1], softmax)
         new(layernum, topology, layers)
     end
-    function IRNN(topology::Vector{Int}, fn::Array{T}) where T
+
+    function INDRNN(topology::Vector{Int}, fn::Array{T}) where T
         layernum = length(topology) - 1
-        layers = Vector{irnn}(undef, layernum)
+        layers = Vector{indrnn}(undef, layernum)
         for i = 1:layernum
-            layers[i] = irnn(topology[i], topology[i+1], fn[i])
+            layers[i] = indrnn(topology[i], topology[i+1], fn[i])
         end
         new(layernum, topology, layers)
     end
 end
 
 
-function resethidden(model::irnn)
+function resethidden(model::indrnn)
     model.h = nothing
 end
 
 
-function resethidden(model::IRNN)
+function resethidden(model::INDRNN)
     for i = 1:model.layernum
         model.layers[i].h = nothing
     end
 end
 
 
-function forward(model::irnn, x::Variable)
+function forward(model::indrnn, x::Variable)
     f = model.f  # activition function
     w = model.w  # input's weights
     b = model.b  # input's bias
     u = model.u  # memory's weights
     h = model.h != nothing ? model.h : Variable(zeros(size(w,1),size(x,2)))
-    x = f( matAddVec(w*x + u*h, b) )
+    x = f(matAddVec(w*x + matMulVec(h, u), b))
     model.h = x
     return x
 end
 
 
-function forward(model::IRNN, input::Variable)
+function forward(model::INDRNN, input::Variable)
     hlayers = model.layernum
     x = forward(model.layers[1], input)
     for i = 2:hlayers
@@ -77,19 +78,19 @@ function forward(model::IRNN, input::Variable)
 end
 
 
-function predict(model::irnn, x)
+function predict(model::indrnn, x)
     f = model.f        # activition function
     w = model.w.value  # input's weights
     b = model.b.value  # input's bias
     u = model.u.value  # memory's weights
     h = model.h != nothing ? model.h : zeros(size(w,1),size(x,2))
-    x = f(w*x + u*h .+ b)
+    x = f(w*x + h .* u .+ b)
     model.h = x
     return x
 end
 
 
-function predict(model::IRNN, input)
+function predict(model::INDRNN, input)
     x = predict(model.layers[1], input)
     for i = 2:model.layernum
         x = predict(model.layers[i], x)
@@ -98,7 +99,7 @@ function predict(model::IRNN, input)
 end
 
 
-function weightsof(m::irnn)
+function weightsof(m::indrnn)
     weights = Vector(undef,3)
     weights[1] = m.w.value
     weights[2] = m.b.value
@@ -107,7 +108,7 @@ function weightsof(m::irnn)
 end
 
 
-function weightsof(m::IRNN)
+function weightsof(m::INDRNN)
     weights = Vector(undef,0)
     for i = 1:m.layernum
         append!(weights, weightsof(m.layers[i]))
@@ -116,7 +117,7 @@ function weightsof(m::IRNN)
 end
 
 
-function gradsof(m::irnn)
+function gradsof(m::indrnn)
     grads = Vector(undef,3)
     grads[1] = m.w.delta
     grads[2] = m.b.delta
@@ -125,7 +126,7 @@ function gradsof(m::irnn)
 end
 
 
-function gradsof(m::IRNN)
+function gradsof(m::INDRNN)
     grads = Vector(undef,0)
     for i = 1:m.layernum
         append!(grads, gradsof(m.layers[i]))
@@ -134,21 +135,21 @@ function gradsof(m::IRNN)
 end
 
 
-function zerograds(m::irnn)
+function zerograds(m::indrnn)
     for v in gradsof(m)
         v .= zero(v)
     end
 end
 
 
-function zerograds(m::IRNN)
+function zerograds(m::INDRNN)
     for v in gradsof(m)
         v .= zero(v)
     end
 end
 
 
-function paramsof(m::irnn)
+function paramsof(m::indrnn)
     params = Vector{Variable}(undef,3)
     params[1] = m.w
     params[2] = m.b
@@ -157,7 +158,7 @@ function paramsof(m::irnn)
 end
 
 
-function paramsof(m::IRNN)
+function paramsof(m::INDRNN)
     params = Vector{Variable}(undef,0)
     for i = 1:m.layernum
         append!(params, paramsof(m.layers[i]))
@@ -166,15 +167,15 @@ function paramsof(m::IRNN)
 end
 
 
-function nparamsof(m::irnn)
+function nparamsof(m::indrnn)
     lw = length(m.w)
     lb = length(m.b)
     lu = length(m.u)
-    return (lw+lb+lu)
+    return (lw + lb + lu)
 end
 
 
-function nparamsof(m::IRNN)
+function nparamsof(m::INDRNN)
     num = 0
     for i = 1:m.layernum
         num += nparamsof(m.layers[i])

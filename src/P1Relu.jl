@@ -14,7 +14,7 @@ end
 
 
 function forward(model::P1Relu, input::Variable)
-    r, c  = size(input.value)
+    r, c  = size(input)
     slope = model.p.value
     tempv = input.value .* slope
     mask1 = input.value .> tempv

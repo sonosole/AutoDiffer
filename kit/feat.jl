@@ -1,5 +1,6 @@
 using FFTW
 
+
 mutable struct featparams
     # 分帧参数
     winLength::Int
@@ -15,6 +16,7 @@ mutable struct featparams
     stackShift::Int
     # 自动计算参数
     maxfreq::Int     # 频域最大有效频率下标
+    epsilon::Real    # 防止下溢
     stackSize::Int   # 超帧含有的小帧个数
     featLength::Int  # 超帧维度=拼帧数*每帧特征维度
     featShift::Int   # 超帧位移=移帧数*每帧特征维度
@@ -26,14 +28,16 @@ mutable struct featparams
         numFFT     = 256,
         alpha      = 0.97,
         fs         = 16000,
-        leftpad    = 7,
-        rightpad   = 7,
-        stackShift = 3)
+        leftpad    = 4,
+        rightpad   = 3,
+        stackShift = 3,
+        epsilon    = 1e-9)
         maxfreq    = numFFT>>1
         stackSize  = leftpad + 1 + rightpad   # 超帧含有的小帧个数
         featLength = stackSize * numBanks     # 超帧维度=拼帧数*每帧特征维度
         featShift  = stackShift * numBanks    # 超帧位移=移帧数*每帧特征维度
-        new(winLength,winShift, numBanks,numFFT,alpha,fs,leftpad,rightpad,stackShift,maxfreq,stackSize,featLength,featShift)
+        new(winLength,winShift,numBanks,numFFT,alpha,fs,leftpad,rightpad,
+            stackShift,maxfreq,epsilon,stackSize,featLength,featShift)
     end
 end
 
@@ -96,30 +100,49 @@ function initfeat(params::featparams)
     stackShift = params.stackShift
     featLength = params.featLength
     featShift  = params.featShift
-
-    winfunc = window(winLength)
-    melbank = filterbanks(numBanks, numFFT, fs)
+    epsilon    = params.epsilon
+    winfunc    = window(winLength)
+    melbank    = filterbanks(numBanks, numFFT, fs)
 
     function offlinefeat(wav)
         # 滤波 + 分帧 + 提取小特征 + 拼接小特征
         wavedata  = filterwav(wav, alpha)
         frames, n = splitwav(wavedata, winfunc, winLength, winShift)
-        numsfeats = floor(Int, (n - stackSize)/stackShift) + 1
-        superfeat = zeros(featLength, numsfeats)
+        numsfeats = floor(Int, (n - stackSize)/stackShift) + 1  # 超帧数
+        superfeat = zeros(featLength, numsfeats)                # 超帧数组
 
-        tmp = fft(frames,1)                 # 时域到频域,按列计算
-        pow = abs2.(tmp[1:maxfreq,:])       # 功率谱,提取有用部分
-        # mel = log.(melbank * pow .+ 1e-9)   # 对数梅尔功率谱
-        mel = melbank * pow
+        tmp = fft(frames,1)                                 # 时域到频域,按列计算
+        pow = abs2.(tmp[1:maxfreq,:])                       # 功率谱,提取有用部分
+        mel = log.(melbank * pow .+ epsilon)                # 对数梅尔功率谱
 
-        firstIds = (0:numsfeats-1) .* featShift .+ 1  # 超帧起始下标数组
-        lasstIds = firstIds .+ (featLength - 1)       # 超帧结束下标数组
+        firstIds = (0:numsfeats-1) .* featShift .+ 1        # 超帧起始下标数组
+        lasstIds = firstIds .+ (featLength - 1)             # 超帧结束下标数组
         for i = 1:numsfeats
             superfeat[:,i] = mel[firstIds[i]:lasstIds[i]]
         end
         return superfeat
     end
     return offlinefeat
+end
+
+
+function show(f::featparams)
+    println("--------------------")
+    println(" winLength  = $(f.winLength)")
+    println(" winShift   = $(f.winShift)")
+    println(" numBanks   = $(f.numBanks)")
+    println(" numFFT     = $(f.numFFT)")
+    println(" alpha      = $(f.alpha)")
+    println(" fs         = $(f.fs)")
+    println(" leftpad    = $(f.leftpad)")
+    println(" rightpad   = $(f.rightpad)")
+    println(" stackShift = $(f.stackShift)")
+    println(" maxfreq    = $(f.maxfreq)")
+    println(" epsilon    = $(f.epsilon)")
+    println(" stackSize  = $(f.stackSize)")
+    println(" featLength = $(f.featLength)")
+    println(" featShift  = $(f.featShift)")
+    println("--------------------")
 end
 
 
@@ -141,4 +164,14 @@ end
 
 
 # 实时速度约 895 倍 (i7-3630QM CPU@2.4GHz)
-# 相当于 1 秒可以处理 895 秒的16KHz@16bit的 wav 数据
+# 相当于 1 秒可以处理 895 秒的16KHz@16bit的 wav 数据 @ :
+# winLength  = 256,
+# winShift   = 128,
+# numBanks   = 32,
+# numFFT     = 256,
+# alpha      = 0.9,
+# fs         = 16000,
+# leftpad    = 4,
+# rightpad   = 3,
+# stackShift = 3,
+# epsilon    = 1e-9

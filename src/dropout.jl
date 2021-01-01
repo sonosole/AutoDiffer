@@ -13,7 +13,7 @@ end
 function forward(d::dropout, var::Variable)
     # 对网络激活节点进行灭活
     # 属于in-place操作,但是输入输出共享节点值引用
-    row, col = size(var.value)
+    row, col = size(var)
     RandMask = (rand(row, col) .< (1 - d.p)) .* (1/(1 - d.p))
     var.value .*= RandMask
     out = Variable(var.value, var.trainable)

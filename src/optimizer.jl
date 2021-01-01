@@ -72,7 +72,7 @@ mutable struct Adam <: Optimizer
 end
 
 
-function update(a::Adam, params::Vector{Variable}; clipvalue=1e4, decay=1.0)
+function update(a::Adam, params::Vector{Variable}; clipvalue=1.0)
     w1 = a.w1
     w2 = a.w2
     lr = a.lr
@@ -101,4 +101,14 @@ function decay(params::Vector{Variable}; ratio=0.999)
     for p in params
         p.value .*= ratio
     end
+end
+
+
+function normclip(gradient, clipvalue)
+    L2NormVal  = sqrt( sum(gradient .^ 2) / length(gradient) )
+    Normalizer = clipvalue / L2NormVal
+    if L2NormVal > clipvalue
+        gradient .*= Normalizer
+    end
+    return gradient
 end

@@ -3,13 +3,13 @@ mutable struct dense <: Block
     b::Variable # bias of hidden units
     f::Function # activation function
     function dense(inputSize::Int, hiddenSize::Int)
-        w = randn(hiddenSize, inputSize) .* sqrt( 6 / (hiddenSize + inputSize) )
-        b = zeros(hiddenSize, 1)
+        w = randn(hiddenSize, inputSize) .* sqrt( 2 / inputSize )
+        b = randn(hiddenSize, 1) .* sqrt( 2 / inputSize )
         new(Variable(w,true), Variable(b,true), relu)
     end
     function dense(inputSize::Int, hiddenSize::Int, fn::Function)
-        w = randn(hiddenSize, inputSize) .* sqrt( 6 / (hiddenSize + inputSize) )
-        b = zeros(hiddenSize, 1)
+        w = randn(hiddenSize, inputSize) .* sqrt( 2 / inputSize )
+        b = randn(hiddenSize, 1) .* sqrt( 2 / inputSize )
         new(Variable(w,true), Variable(b,true), fn)
     end
 end
@@ -39,12 +39,11 @@ mutable struct MLP <: Block
 end
 
 
-function forward(model::dense, input::Variable)
+function forward(model::dense, x::Variable)
     f = model.f
     w = model.w
     b = model.b
-    x = f( matAddVec(w * input, b) )
-    return x
+    return f( matAddVec(w * x, b) )
 end
 
 
@@ -57,12 +56,11 @@ function forward(model::MLP, input::Variable)
 end
 
 
-function predict(model::dense, input)
+function predict(model::dense, x)
     f = model.f
     w = model.w.value
     b = model.b.value
-    x = f(w * input .+ b)
-    return x
+    return f(w * x .+ b)
 end
 
 
@@ -141,9 +139,9 @@ end
 
 
 function nparamsof(m::dense)
-    i,j = size(m.w.value)
-    k = size(m.b.value,1)
-    return (i*j+k)
+    lw = length(m.w)
+    lb = length(m.b)
+    return (lw + lb)
 end
 
 
